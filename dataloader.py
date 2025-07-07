@@ -12,6 +12,7 @@ class SporeSegmentationDataset(Dataset):
         self.train = train
         self.image_dir = os.path.join(root_dir, 'images')
         self.mask_dir = os.path.join(root_dir, 'masks')
+
         self.image_filenames = [
             f for f in sorted(os.listdir(self.image_dir))
             if os.path.isfile(os.path.join(self.mask_dir, f))
@@ -29,14 +30,28 @@ class SporeSegmentationDataset(Dataset):
         mask = Image.open(mask_path).convert("L")
 
         if self.train:
-            # Aumentos coherentes entre imagen y máscara
+            # --- Aumentos de datos coherentes entre imagen y máscara ---
             if torch.rand(1).item() > 0.5:
                 image = transforms.functional.hflip(image)
                 mask = transforms.functional.hflip(mask)
+
             if torch.rand(1).item() > 0.5:
-                angle = torch.randint(-15, 15, (1,)).item()
+                image = transforms.functional.vflip(image)
+                mask = transforms.functional.vflip(mask)
+
+            if torch.rand(1).item() > 0.5:
+                angle = torch.randint(-30, 30, (1,)).item()
                 image = transforms.functional.rotate(image, angle)
                 mask = transforms.functional.rotate(mask, angle)
+
+            # ColorJitter solo en imagen (no en máscara)
+            color_jitter = transforms.ColorJitter(
+                brightness=0.2,
+                contrast=0.2,
+                saturation=0.2,
+                hue=0.05
+            )
+            image = color_jitter(image)
 
         if self.transform:
             image = self.transform(image)
@@ -44,7 +59,6 @@ class SporeSegmentationDataset(Dataset):
 
         mask = torch.from_numpy(np.array(mask)).float()
         return image, mask
-
 
 def get_dataloaders(root_dir, batch_size, image_transform=None, mask_transform=None, train_split=0.8):
     full_dataset = SporeSegmentationDataset(root_dir=root_dir, transform=image_transform, train=True)
