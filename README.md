@@ -5,6 +5,6 @@ Este proyecto implementa una red neuronal **U-Net** en PyTorch para la segmentac
 
 El objetivo es clasificar cada píxel de una imagen como perteneciente a una "espora" o al "fondo", permitiendo identificar visualmente la presencia y extensión de las esporas. A continuación, se muestra un ejemplo de imagen original junto a su máscara binaria generada:
 
-| Imagen original | Máscara binaria |
-|------------------|------------------|
-| ![Espora](dataset/images/ectomicorrizas1.png) | ![Mascara](dataset/masks/ectomicorrizas1.png) |
+| Imagen original | Máscara generada manualmente| Máscara predicha con 25 imagenes de entrenamiento
+|------------------|------------------|------------------|
+| ![Espora](dataset/images/ectomicorrizas1.png) | ![Mascara](dataset/masks/ectomicorrizas1.png) | ![Predicción](predictions/combined_ectomicorrizas1.png)
