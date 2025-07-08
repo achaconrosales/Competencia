@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 from tqdm import tqdm
-
+import wandb
 from dataloader import SporeDataModule
 from unet import UNet
 
@@ -19,6 +19,13 @@ DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def train():
+    wandb.init(project="SporeSegmentation", config={
+        "model": "UNet",
+        "epochs": NUM_EPOCHS,
+        "batch_size": BATCH_SIZE,
+        "learning_rate": LEARNING_RATE,
+        "image_size": IMAGE_SIZE,
+    })
     dataset = SporeDataModule(IMAGE_DIR, IMAGE_SIZE, BATCH_SIZE)
     train_loader, val_loader = dataset.get_dataloaders()
 
@@ -62,7 +69,15 @@ def train():
         val_loss /= len(val_loader.dataset)
         val_dice /= len(val_loader.dataset)
         val_iou /= len(val_loader.dataset)
+        wandb.log({
+            "Train Loss": epoch_loss,
+            "Train Dice": epoch_dice,
+            "Train IoU": epoch_iou,
+            "Val Loss": val_loss,
+            "Val Dice": val_dice,
+            "Val IoU": val_iou
 
+        })
         print(f"Epoch {epoch+1} | Train Loss: {epoch_loss:.4f} | Train Dice: {epoch_dice:.4f} | Train IoU: {epoch_iou:.4f} | "
               f"Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f} | Val IoU: {val_iou:.4f}")
 
