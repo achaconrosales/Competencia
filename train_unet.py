@@ -12,20 +12,22 @@ from unet import UNet
 model_name = "unet_model.pth"
 IMAGE_DIR = './dataset'
 BATCH_SIZE = 4
-NUM_EPOCHS = 20
+NUM_EPOCHS = 30
 LEARNING_RATE = 1e-4
 IMAGE_SIZE = (224, 224)
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def train():
-    wandb.init(project="SporeSegmentation", config={
-        "model": "UNet",
-        "epochs": NUM_EPOCHS,
-        "batch_size": BATCH_SIZE,
-        "learning_rate": LEARNING_RATE,
-        "image_size": IMAGE_SIZE,
-    })
+    wandb.login(key="604cb8bc212df5c53f97526f8520c686e12d8588") #CUENTA DE AARON
+    wandb.init(project="SporeSegmentation", 
+               name=f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_{wandb.util.generate_id()[:4]}",
+               config={"model": "UNet",
+                        "epochs": NUM_EPOCHS,
+                        "batch_size": BATCH_SIZE,
+                        "learning_rate": LEARNING_RATE,
+                        "image_size": IMAGE_SIZE,})
+    
     dataset = SporeDataModule(IMAGE_DIR, IMAGE_SIZE, BATCH_SIZE)
     train_loader, val_loader = dataset.get_dataloaders()
 
