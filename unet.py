@@ -54,3 +54,29 @@ class UNet(nn.Module):
         x = self.conv4(torch.cat([self.up4(x), x1], dim=1))
 
         return torch.sigmoid(self.out_conv(x))
+    
+
+    def save(self, path):
+        """Guarda los pesos del modelo en el archivo especificado."""
+        torch.save(self.state_dict(), path)
+        print(f"Modelo guardado en: {path}")
+
+
+    def load(self, path, map_location=None):
+        """Carga los pesos del modelo desde un archivo."""
+        self.load_state_dict(torch.load(path, map_location=map_location))
+        print(f"Modelo cargado desde: {path}")
+
+
+    @staticmethod
+    def dice_coef(pred, target, threshold=0.5):
+        pred = (pred > threshold).float()
+        intersection = (pred * target).sum()
+        return (2. * intersection) / (pred.sum() + target.sum() + 1e-8)
+
+    @staticmethod
+    def iou_score(pred, target, threshold=0.5):
+        pred = (pred > threshold).float()
+        intersection = (pred * target).sum()
+        union = pred.sum() + target.sum() - intersection
+        return intersection / (union + 1e-8)

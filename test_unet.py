@@ -7,13 +7,14 @@ import numpy as np
 import matplotlib.pyplot as plt
 from torchvision.transforms import functional as TF
 
+from dataloader import SporeDataModule
 from unet import UNet
 
 # -------------- CONFIGURACIÓN --------------------
-MODEL_PATH = "unet_sporas.pth"
-IMAGE_DIR = "./validacion"
+MODEL_PATH = "unet_model.pth"
+IMAGE_DIR = './dataset'
 SAVE_DIR = "./predictions"
-IMAGE_SIZE = (256, 256)
+IMAGE_SIZE = (224, 224)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 # Crear directorio de salida si no existe
@@ -21,38 +22,32 @@ os.makedirs(SAVE_DIR, exist_ok=True)
 
 # -------------- CARGAR MODELO --------------------
 model = UNet().to(DEVICE)
-model.load_state_dict(torch.load(MODEL_PATH, map_location=DEVICE))
+model.load(MODEL_PATH, map_location=DEVICE)  # Usar el método load definido en tu clase
 model.eval()
-print("✅ Modelo cargado")
+    
+# -------------- CARGAR DATOS DE VALIDACIÓN -------
+data_module = SporeDataModule(IMAGE_DIR, image_size=IMAGE_SIZE, batch_size=1, verbose=False)
+_, val_loader = data_module.get_dataloaders()
 
-# -------------- PREDICCIÓN -----------------------
-def predict_mask(image_path):
-    image = Image.open(image_path).convert('RGB')
-    image_resized = image.resize(IMAGE_SIZE)
-    input_tensor = TF.to_tensor(image_resized).unsqueeze(0).to(DEVICE)
+# -------------- PREDICCIÓN Y GUARDADO -----------
+for idx, (image, mask) in enumerate(val_loader):
 
+
+    image = image.to(DEVICE)
     with torch.no_grad():
-        output = model(input_tensor)
-        mask = (output.squeeze().cpu().numpy() > 0.5).astype(np.uint8)
+        output = model(image)
+        pred_mask = (output.squeeze().cpu().numpy() > 0.5).astype(np.uint8)
 
-    return mask
-
-# -------------- TESTEO --------------------------
-image_paths = [os.path.join(IMAGE_DIR, fname) for fname in os.listdir(IMAGE_DIR) if fname.endswith('.png')]
-for path in image_paths:
-    filename = os.path.basename(path)
-    mask = predict_mask(path)
-
-    # Cargar imagen original y redimensionar la máscara a RGB
-    original_img = Image.open(path).convert('RGB').resize(IMAGE_SIZE)
-    mask_img = Image.fromarray(mask * 255).convert('L').resize(IMAGE_SIZE)
+    # Recuperar la imagen original del dataset
+    # (asumiendo que val_loader usa SporeDataset y tiene .val_images)
+    original_path = data_module.val_images[idx]
+    original_img = Image.open(original_path).convert('RGB').resize(IMAGE_SIZE)
+    mask_img = Image.fromarray(pred_mask * 255).convert('L').resize(IMAGE_SIZE)
     mask_img_rgb = Image.merge("RGB", (mask_img, mask_img, mask_img))
 
-    # Concatenar imagen original y máscara predicha horizontalmente
     combined = Image.new('RGB', (IMAGE_SIZE[0]*2, IMAGE_SIZE[1]))
     combined.paste(original_img, (0, 0))
     combined.paste(mask_img_rgb, (IMAGE_SIZE[0], 0))
 
-    # Guardar imagen combinada
-    combined.save(os.path.join(SAVE_DIR, f"combined_{filename}"), dpi = (100, 100))
-
+    filename = os.path.basename(original_path)
+    combined.save(os.path.join(SAVE_DIR, f"combined_{filename}"), dpi=(100, 100))
