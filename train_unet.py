@@ -12,7 +12,7 @@ from unet import UNet
 model_name = "unet_model.pth"
 IMAGE_DIR = './dataset'
 BATCH_SIZE = 4
-NUM_EPOCHS = 30
+NUM_EPOCHS = 40
 LEARNING_RATE = 1e-4
 IMAGE_SIZE = (224, 224)
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -29,6 +29,7 @@ def train():
                         "image_size": IMAGE_SIZE,})
     
     dataset = SporeDataModule(IMAGE_DIR, IMAGE_SIZE, BATCH_SIZE)
+    dataset.set_seed(42)
     train_loader, val_loader = dataset.get_dataloaders()
 
     model = UNet().to(DEVICE)

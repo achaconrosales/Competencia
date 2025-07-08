@@ -3,11 +3,13 @@
 import os
 from glob import glob
 from PIL import Image
+import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
 from torchvision.transforms import functional as TF
 import random
+from tqdm import tqdm
 
 class SporeDataset(Dataset):
     def __init__(self, image_paths, mask_paths, augment=True, image_size=(256, 256)):
@@ -15,6 +17,7 @@ class SporeDataset(Dataset):
         self.mask_paths = mask_paths
         self.augment = augment
         self.image_size = image_size
+        self.mean,self.std = self.compute_mean_std(image_size=image_size)
 
     def __len__(self):
         return len(self.image_paths)
@@ -49,11 +52,29 @@ class SporeDataset(Dataset):
 
         # Convertir a tensores
         image = TF.to_tensor(image)
-        image = TF.normalize(image, mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        image = TF.normalize(image, mean=self.mean, std=self.std)
         mask = TF.to_tensor(mask)
         mask = (mask > 0.5).float()
 
         return image, mask
+    
+    @staticmethod
+    def compute_mean_std(image_size=(224, 224)):
+        image_paths = sorted(glob(os.path.join('./dataset/images', '*.[jp][pn]g')))
+        sums = torch.zeros(3)
+        sumsq = torch.zeros(3)
+        n_pixels = 0
+
+        for path in tqdm(image_paths, desc="Procesando imágenes"):
+            img = Image.open(path).convert('RGB').resize(image_size)
+            tensor = TF.to_tensor(img)  # (3, H, W), valores en [0,1]
+            sums += tensor.sum(dim=[1,2])
+            sumsq += (tensor ** 2).sum(dim=[1,2])
+            n_pixels += tensor.shape[1] * tensor.shape[2]
+
+        mean = sums / n_pixels
+        std = (sumsq / n_pixels - mean ** 2).sqrt()
+        return mean.tolist(), std.tolist()
 
 class SporeDataModule:
     def __init__(self, dataset_dir, image_size=(256, 256), batch_size=8, verbose=True):
@@ -88,3 +109,12 @@ class SporeDataModule:
         val_loader = DataLoader(val_dataset, batch_size=self.batch_size, shuffle=False)
 
         return train_loader, val_loader
+    
+    @staticmethod
+    def set_seed(seed=42):
+        random.seed(seed)
+        np.random.seed(seed)
+        torch.manual_seed(seed)
+        torch.cuda.manual_seed_all(seed)
+        torch.backends.cudnn.deterministic = True
+        torch.backends.cudnn.benchmark = False
