@@ -24,9 +24,6 @@ sweep_config = {
         },
         'learning_rate': {
             'values': [1e-3, 1e-4, 1e-5] # Valores específicos a probar para la tasa de aprendizaje
-        },
-        'num_epochs': {
-            'values': [1] # Valores específicos para el número de épocas de entrenamiento
         }
     }
 }
@@ -36,7 +33,7 @@ sweep_config = {
 model_name = "unet_model.pth"
 IMAGE_DIR = './dataset'
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-
+NUM_EPOCHS = 10  # Número de épocas para el entrenamiento
 
 def train():
     wandb.login(key="604cb8bc212df5c53f97526f8520c686e12d8588") #CUENTA DE AARON
@@ -47,10 +44,9 @@ def train():
     IMAGE_SIZE = config.img_size
     BATCH_SIZE = config.batch_size
     LEARNING_RATE = config.learning_rate
-    NUM_EPOCHS = config.num_epochs
 
 
-    wandb.run.name =f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_{wandb.util.generate_id()[:4]}"
+    wandb.run.name =f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_epochs{NUM_EPOCHS}_{wandb.util.generate_id()[:4]}"
 
     
     dataset = SporeDataModule(IMAGE_DIR, IMAGE_SIZE, BATCH_SIZE)
