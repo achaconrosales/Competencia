@@ -8,25 +8,49 @@ import wandb
 from dataloader import SporeDataModule
 from unet import UNet
 
+sweep_config = {
+    'method': 'random',  # Método de búsqueda: 'random' (aleatorio), 'grid' (malla), 'bayes' (bayesiano)
+    'metric': {          # Métrica a optimizar durante el sweep
+        'name': 'Val IoU', # La recompensa media por episodio es una métrica estándar de SB3
+        'goal': 'maximize'             # Queremos maximizar esta métrica
+    },
+    'parameters': {      # Definición de los hiperparámetros y sus valores/rangos
+        'img_size': {
+            'values': [(256, 256), (320, 320), (384, 384)] # Valores específicos a probar para el tamaño de imagen
+        },
+        'batch_size': {
+            'values': [2, 4, 8] # Valores específicos a probar para
+        },
+        'learning_rate': {
+            'values': [1e-3, 1e-4, 1e-5] # Valores específicos a probar para la tasa de aprendizaje
+        },
+        'num_epochs': {
+            'values': [1] # Valores específicos para el número de épocas de entrenamiento
+        }
+    }
+}
+
+
 # Configuración
 model_name = "unet_model.pth"
 IMAGE_DIR = './dataset'
-BATCH_SIZE = 4
-NUM_EPOCHS = 40
-LEARNING_RATE = 1e-4
-IMAGE_SIZE = (224, 224)
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
 
 def train():
     wandb.login(key="604cb8bc212df5c53f97526f8520c686e12d8588") #CUENTA DE AARON
-    wandb.init(project="SporeSegmentation", 
-               name=f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_{wandb.util.generate_id()[:4]}",
-               config={"model": "UNet",
-                        "epochs": NUM_EPOCHS,
-                        "batch_size": BATCH_SIZE,
-                        "learning_rate": LEARNING_RATE,
-                        "image_size": IMAGE_SIZE,})
+    wandb.init(project="SporeSegmentation")
+    config = wandb.config
+    
+    # Extrae los hiperparámetros de la configuración actual del sweep
+    IMAGE_SIZE = config.img_size
+    BATCH_SIZE = config.batch_size
+    LEARNING_RATE = config.learning_rate
+    NUM_EPOCHS = config.num_epochs
+
+
+    wandb.run.name =f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_{wandb.util.generate_id()[:4]}"
+
     
     dataset = SporeDataModule(IMAGE_DIR, IMAGE_SIZE, BATCH_SIZE)
     dataset.set_seed(42)
@@ -79,11 +103,15 @@ def train():
             "Val Loss": val_loss,
             "Val Dice": val_dice,
             "Val IoU": val_iou
-
         })
+
         print(f"Epoch {epoch+1} | Train Loss: {epoch_loss:.4f} | Train Dice: {epoch_dice:.4f} | Train IoU: {epoch_iou:.4f} | "
               f"Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f} | Val IoU: {val_iou:.4f}")
 
-    model.save(model_name)
+    #model.save(model_name)
+
+
 if __name__ == "__main__":
-    train()
+    sweep_id = wandb.sweep(sweep_config, project="SporeSegmentation")
+    wandb.agent(sweep_id, function=train, count=27)
+

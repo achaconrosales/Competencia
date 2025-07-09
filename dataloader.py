@@ -32,6 +32,8 @@ class SporeDataset(Dataset):
 
         # Aumentos básicos (solo en entrenamiento)
         if self.augment:
+            if torch.rand(1).item() < 0.2:
+                image = image.convert('L').convert('RGB')
             if torch.rand(1).item() > 0.5:
                 image = TF.hflip(image)
                 mask = TF.hflip(mask)
