@@ -32,7 +32,7 @@ sweep_config = {
 model_name = "unet_model.pth"
 IMAGE_DIR = './dataset'
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-NUM_EPOCHS = 10  # Número de épocas para el entrenamiento
+NUM_EPOCHS = 150  # Número de épocas para el entrenamiento
 
 def train():
     wandb.login(key="604cb8bc212df5c53f97526f8520c686e12d8588") #CUENTA DE AARON
