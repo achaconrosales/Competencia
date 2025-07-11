@@ -43,7 +43,6 @@ def train():
     IMAGE_SIZE = config.img_size
     BATCH_SIZE = config.batch_size
     LEARNING_RATE = config.learning_rate
-    NUM_EPOCHS = config.num_epochs
 
 
     wandb.run.name =f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_{wandb.util.generate_id()[:4]}"

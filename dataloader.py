@@ -3,6 +3,7 @@
 import os
 from glob import glob
 from PIL import Image
+from PIL import ImageFile
 import numpy as np
 import torch
 from torch.utils.data import Dataset, DataLoader
@@ -62,21 +63,29 @@ class SporeDataset(Dataset):
     
     @staticmethod
     def compute_mean_std(image_size=(224, 224)):
+        from PIL import ImageFile
+        ImageFile.LOAD_TRUNCATED_IMAGES = True  # ← AÑADIR esto
+        
         image_paths = sorted(glob(os.path.join('./dataset/images', '*.[jp][pn]g')))
         sums = torch.zeros(3)
         sumsq = torch.zeros(3)
         n_pixels = 0
 
         for path in tqdm(image_paths, desc="Procesando imágenes"):
-            img = Image.open(path).convert('RGB').resize(image_size)
-            tensor = TF.to_tensor(img)  # (3, H, W), valores en [0,1]
-            sums += tensor.sum(dim=[1,2])
-            sumsq += (tensor ** 2).sum(dim=[1,2])
-            n_pixels += tensor.shape[1] * tensor.shape[2]
+            try:
+                img = Image.open(path).convert('RGB').resize(image_size)
+                tensor = TF.to_tensor(img)
+                sums += tensor.sum(dim=[1, 2])
+                sumsq += (tensor ** 2).sum(dim=[1, 2])
+                n_pixels += tensor.shape[1] * tensor.shape[2]
+            except Exception as e:
+                print(f"[WARNING] Imagen corrupta omitida: {path} — {e}")
 
         mean = sums / n_pixels
         std = (sumsq / n_pixels - mean ** 2).sqrt()
         return mean.tolist(), std.tolist()
+
+
 
 class SporeDataModule:
     def __init__(self, dataset_dir, image_size=(256, 256), batch_size=8, verbose=True):

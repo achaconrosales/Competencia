@@ -1,53 +1,111 @@
-# test_unet.py
-
-import os
+# train_unet.py
+print("Importing libraries...")
 import torch
-from PIL import Image
-import numpy as np
-import matplotlib.pyplot as plt
-from torchvision.transforms import functional as TF
-
+import torch.nn as nn
+import torch.optim as optim
+from tqdm import tqdm
+import wandb
 from dataloader import SporeDataModule
 from unet import UNet
 
-# -------------- CONFIGURACIÓN --------------------
-MODEL_PATH = "unet_model.pth"
+sweep_config = {
+    'method': 'grid',  # Método de búsqueda: 'random' (aleatorio), 'grid' (malla), 'bayes' (bayesiano)
+    'metric': {          # Métrica a optimizar durante el sweep
+        'name': 'Val IoU', # La recompensa media por episodio es una métrica estándar de SB3
+        'goal': 'maximize'             # Queremos maximizar esta métrica
+    },
+    'parameters': {      # Definición de los hiperparámetros y sus valores/rangos
+        'img_size': {
+            'values': [(256, 256), (320, 320)] # Valores específicos a probar para el tamaño de imagen
+        },
+        'batch_size': {
+            'values': [2, 4] # Valores específicos a probar para
+        }
+    }
+}
+
+
+# Configuración
+model_name = "unet_model.pth"
 IMAGE_DIR = './dataset'
-SAVE_DIR = "./predictions"
-IMAGE_SIZE = (224, 224)
-DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+NUM_EPOCHS = 80  # Número de épocas para el entrenamiento
 
-# Crear directorio de salida si no existe
-os.makedirs(SAVE_DIR, exist_ok=True)
-
-# -------------- CARGAR MODELO --------------------
-model = UNet().to(DEVICE)
-model.load(MODEL_PATH, map_location=DEVICE)  # Usar el método load definido en tu clase
-model.eval()
+def train():
+    wandb.login(key="604cb8bc212df5c53f97526f8520c686e12d8588") #CUENTA DE AARON
+    wandb.init(project="SporeSegmentation")
+    config = wandb.config
     
-# -------------- CARGAR DATOS DE VALIDACIÓN -------
-data_module = SporeDataModule(IMAGE_DIR, image_size=IMAGE_SIZE, batch_size=1, verbose=False)
-_, val_loader = data_module.get_dataloaders()
-
-# -------------- PREDICCIÓN Y GUARDADO -----------
-for idx, (image, mask) in enumerate(val_loader):
+    # Extrae los hiperparámetros de la configuración actual del sweep
+    IMAGE_SIZE = config.img_size
+    BATCH_SIZE = config.batch_size
+    LEARNING_RATE = 1e-4
 
 
-    image = image.to(DEVICE)
-    with torch.no_grad():
-        output = model(image)
-        pred_mask = (output.squeeze().cpu().numpy() > 0.5).astype(np.uint8)
+    wandb.run.name =f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_epochs{NUM_EPOCHS}_{wandb.util.generate_id()[:4]}"
 
-    # Recuperar la imagen original del dataset
-    # (asumiendo que val_loader usa SporeDataset y tiene .val_images)
-    original_path = data_module.val_images[idx]
-    original_img = Image.open(original_path).convert('RGB').resize(IMAGE_SIZE)
-    mask_img = Image.fromarray(pred_mask * 255).convert('L').resize(IMAGE_SIZE)
-    mask_img_rgb = Image.merge("RGB", (mask_img, mask_img, mask_img))
+    
+    dataset = SporeDataModule(IMAGE_DIR, IMAGE_SIZE, BATCH_SIZE)
+    dataset.set_seed(42)
+    train_loader, val_loader = dataset.get_dataloaders()
 
-    combined = Image.new('RGB', (IMAGE_SIZE[0]*2, IMAGE_SIZE[1]))
-    combined.paste(original_img, (0, 0))
-    combined.paste(mask_img_rgb, (IMAGE_SIZE[0], 0))
+    model = UNet().to(DEVICE)
+    criterion = nn.BCELoss()
+    optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-    filename = os.path.basename(original_path)
-    combined.save(os.path.join(SAVE_DIR, f"combined_{filename}"), dpi=(100, 100))
+    for epoch in range(NUM_EPOCHS):
+        model.train()
+        running_loss = running_dice = running_iou = 0.0
+
+        for images, masks in tqdm(train_loader, desc=f"Epoch {epoch+1}/{NUM_EPOCHS} [Train]"):
+            images, masks = images.to(DEVICE), masks.to(DEVICE)
+            outputs = model(images)
+            loss = criterion(outputs, masks)
+
+            optimizer.zero_grad()
+            loss.backward()
+            optimizer.step()
+
+            running_loss += loss.item() * images.size(0)
+            running_dice += model.dice_coef(outputs, masks).item() * images.size(0)
+            running_iou += model.iou_score(outputs, masks).item() * images.size(0)
+
+        epoch_loss = running_loss / len(train_loader.dataset)
+        epoch_dice = running_dice / len(train_loader.dataset)
+        epoch_iou = running_iou / len(train_loader.dataset)
+
+        # VALIDATION
+        model.eval()
+        val_loss = val_dice = val_iou = 0.0
+        with torch.no_grad():
+            for images, masks in tqdm(val_loader, desc=f"Epoch {epoch+1}/{NUM_EPOCHS} [Val]", leave=False):
+                images, masks = images.to(DEVICE), masks.to(DEVICE)
+                outputs = model(images)
+                loss = criterion(outputs, masks)
+                val_loss += loss.item() * images.size(0)
+                val_dice += model.dice_coef(outputs, masks).item() * images.size(0)
+                val_iou += model.iou_score(outputs, masks).item() * images.size(0)
+
+        val_loss /= len(val_loader.dataset)
+        val_dice /= len(val_loader.dataset)
+        val_iou /= len(val_loader.dataset)
+        wandb.log({
+            "Train Loss": epoch_loss,
+            "Train Dice": epoch_dice,
+            "Train IoU": epoch_iou,
+            "Val Loss": val_loss,
+            "Val Dice": val_dice,
+            "Val IoU": val_iou
+        })
+
+        print(f"Epoch {epoch+1} | Train Loss: {epoch_loss:.4f} | Train Dice: {epoch_dice:.4f} | Train IoU: {epoch_iou:.4f} | "
+              f"Val Loss: {val_loss:.4f} | Val Dice: {val_dice:.4f} | Val IoU: {val_iou:.4f}")
+
+    #model.save(model_name)
+
+
+if __name__ == "__main__":
+    sweep_id = wandb.sweep(sweep_config, project="SporeSegmentation")
+    wandb.agent(sweep_id, function=train, count=4)
+
+
