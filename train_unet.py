@@ -9,20 +9,17 @@ from dataloader import SporeDataModule
 from unet import UNet
 
 sweep_config = {
-    'method': 'random',  # Método de búsqueda: 'random' (aleatorio), 'grid' (malla), 'bayes' (bayesiano)
+    'method': 'grid',  # Método de búsqueda: 'random' (aleatorio), 'grid' (malla), 'bayes' (bayesiano)
     'metric': {          # Métrica a optimizar durante el sweep
         'name': 'Val IoU', # La recompensa media por episodio es una métrica estándar de SB3
         'goal': 'maximize'             # Queremos maximizar esta métrica
     },
     'parameters': {      # Definición de los hiperparámetros y sus valores/rangos
         'img_size': {
-            'values': [(256, 256), (320, 320), (384, 384)] # Valores específicos a probar para el tamaño de imagen
+            'values': [(256, 256), (320, 320)] # Valores específicos a probar para el tamaño de imagen
         },
         'batch_size': {
-            'values': [2, 4, 8] # Valores específicos a probar para
-        },
-        'learning_rate': {
-            'values': [1e-3, 1e-4, 1e-5] # Valores específicos a probar para la tasa de aprendizaje
+            'values': [2, 4] # Valores específicos a probar para
         }
     }
 }
@@ -32,7 +29,7 @@ sweep_config = {
 model_name = "unet_model.pth"
 IMAGE_DIR = './dataset'
 DEVICE = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-NUM_EPOCHS = 150  # Número de épocas para el entrenamiento
+NUM_EPOCHS = 80  # Número de épocas para el entrenamiento
 
 def train():
     wandb.login(key="604cb8bc212df5c53f97526f8520c686e12d8588") #CUENTA DE AARON
@@ -42,10 +39,10 @@ def train():
     # Extrae los hiperparámetros de la configuración actual del sweep
     IMAGE_SIZE = config.img_size
     BATCH_SIZE = config.batch_size
-    LEARNING_RATE = config.learning_rate
+    LEARNING_RATE = 1e-4
 
 
-    wandb.run.name =f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_{wandb.util.generate_id()[:4]}"
+    wandb.run.name =f"UNet_img{IMAGE_SIZE[0]}_bs{BATCH_SIZE}_lr{LEARNING_RATE}_epochs{NUM_EPOCHS}_{wandb.util.generate_id()[:4]}"
 
     
     dataset = SporeDataModule(IMAGE_DIR, IMAGE_SIZE, BATCH_SIZE)
@@ -109,5 +106,6 @@ def train():
 
 if __name__ == "__main__":
     sweep_id = wandb.sweep(sweep_config, project="SporeSegmentation")
-    wandb.agent(sweep_id, function=train, count=27)
+    wandb.agent(sweep_id, function=train, count=4)
+
 

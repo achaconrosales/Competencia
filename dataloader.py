@@ -83,6 +83,7 @@ class SporeDataset(Dataset):
 
         mean = sums / n_pixels
         std = (sumsq / n_pixels - mean ** 2).sqrt()
+        print(f"Media: {mean}, Desviación estándar: {std}")
         return mean.tolist(), std.tolist()
 
 
