@@ -65,17 +65,17 @@ for idx, (image, mask) in enumerate(val_loader):
         for i in range(3):
             # Imagen Original
             axes[i, 0].imshow(images_to_plot[i])
-            axes[i, 0].set_title(f'Original {plot_counter * 3 + i}')
+            axes[i, 0].set_title(f'Original {plot_counter * 3 + i}', fontsize=25)
             axes[i, 0].axis('off')
 
             # Máscara Ground Truth
             axes[i, 1].imshow(masks_gt_to_plot[i], cmap='gray') # Asumiendo máscara binaria
-            axes[i, 1].set_title(f'Ground Truth {plot_counter * 3 + i}')
+            axes[i, 1].set_title(f'Ground Truth {plot_counter * 3 + i}', fontsize=25)
             axes[i, 1].axis('off')
 
             # Máscara Predicha
             axes[i, 2].imshow(masks_pred_to_plot[i], cmap='gray') # Asumiendo máscara binaria
-            axes[i, 2].set_title(f'Predicted {plot_counter * 3 + i}')
+            axes[i, 2].set_title(f'Predicted {plot_counter * 3 + i}', fontsize=25 )
             axes[i, 2].axis('off')
 
         plt.tight_layout()
@@ -101,15 +101,15 @@ if len(images_to_plot) > 0:
 
     for i in range(len(images_to_plot)):
         axes[i, 0].imshow(images_to_plot[i])
-        axes[i, 0].set_title(f'Original {plot_counter * 3 + i}')
+        axes[i, 0].set_title(f'Original {plot_counter * 3 + i}', fontsize=25)
         axes[i, 0].axis('off')
 
         axes[i, 1].imshow(masks_gt_to_plot[i], cmap='gray')
-        axes[i, 1].set_title(f'Ground Truth {plot_counter * 3 + i}')
+        axes[i, 1].set_title(f'Ground Truth {plot_counter * 3 + i}', fontsize=25)
         axes[i, 1].axis('off')
 
         axes[i, 2].imshow(masks_pred_to_plot[i], cmap='gray')
-        axes[i, 2].set_title(f'Predicted {plot_counter * 3 + i}')
+        axes[i, 2].set_title(f'Predicted {plot_counter * 3 + i}', fontsize=25)
         axes[i, 2].axis('off')
 
     plt.tight_layout()
